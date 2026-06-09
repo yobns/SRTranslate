@@ -4,6 +4,7 @@ import re
 import asyncio
 import sqlite3
 import hashlib
+import shutil
 import threading
 import http.server
 import socket
@@ -336,7 +337,28 @@ async def translate_srt_file():
         print(f"Error when saving the SRT file: {e}")
         return
 
-    await _maybe_offer_download(output_srt)
+    download_confirmed = await _maybe_offer_download(output_srt)
+    if download_confirmed:
+        _archive_translated_srt(input_srt, output_srt)
+
+
+def _archive_translated_srt(input_srt: str, output_srt: str):
+    archive_dir = os.path.join(os.path.dirname(os.path.abspath(input_srt)), 'archive')
+    archived_output = os.path.join(archive_dir, os.path.basename(output_srt))
+
+    try:
+        os.makedirs(archive_dir, exist_ok=True)
+        shutil.move(output_srt, archived_output)
+        print(f"Archived translated SRT: {archived_output}")
+    except Exception as e:
+        print(f"Could not archive translated SRT: {e}")
+        return
+
+    try:
+        os.remove(input_srt)
+        print(f"Removed original SRT: {input_srt}")
+    except Exception as e:
+        print(f"Could not remove original SRT: {e}")
 
 def _serve_file_once(file_path: str):
     target = os.path.abspath(file_path)
@@ -382,14 +404,16 @@ async def _maybe_offer_download(file_path: str):
     offer = os.environ.get('OFFER_DOWNLOAD', '1') != '0'
     auto = os.environ.get('AUTO_DOWNLOAD', '0') == '1'
     if not offer:
-        return
+        return False
     try:
         import sys
         if (not auto) and sys.stdout.isatty():
             ans = input("Open a link to download the file now? [Y/n] ").strip().lower()
             if ans not in ("", "y", "yes"):
                 print("Okay, the file is saved on disk.")
-                return
+                return False
         await asyncio.to_thread(_serve_file_once, file_path)
+        return True
     except Exception as e:
         print(f"Local download unavailable ({e}). The file is ready on disk.")
+        return False

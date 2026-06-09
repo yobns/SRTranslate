@@ -70,8 +70,9 @@ def detect_file_language(subs) -> str:
             counts[d] = counts.get(d, 0) + 1
         except Exception:
             pass
-    if counts.get('he', 0) >= counts.get('en', 0):
-        return 'he'
+    
+    if not counts:
+        return 'en'
     return max(counts, key=counts.get, default='en')
 
 

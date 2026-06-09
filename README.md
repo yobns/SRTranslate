@@ -1,76 +1,106 @@
-<div align="center">
+# SRTranslate
 
-<img src="public/favicon.ico" alt="SRT Translate" width="120" />
+SRTranslate is a subtitle translation tool for `.srt` files. It reads an SRT file, translates the cues with Google Translate through `deep-translator`, preserves tags when possible, and writes a new translated subtitle file next to the original.
 
-### SRT Translate — Fast, reliable, context-aware subtitle translation (.srt)
+## Features
 
-Upload an SRT file, pick a target language, download a clean, well‑formatted translation.
+- Translate a single `.srt` file from the command line.
+- Auto-detect the source language when `SOURCE_LANG=auto`.
+- Group adjacent subtitle cues to improve translation quality and reduce network overhead.
+- Cache translations in memory and, by default, on disk.
+- Keep basic subtitle formatting and HTML-like tags intact.
+- Offer a local download link when the translation finishes.
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/) [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=222)](https://react.dev/) [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+## Requirements
 
-</div>
+- Python 3.10+ is recommended.
+- A virtual environment is strongly recommended.
 
----
+## Installation
 
-## What it does
-
-SRT Translate helps you turn subtitle files (.srt) from one language to another while preserving timing, structure, and HTML tags like <i> and <b>. It uses a carefully tuned translation pipeline for high accuracy and consistent formatting.
-
-### Highlights
-- Keeps timecodes intact and preserves inline tags
-- Groups related lines for better context and coherence
-- Auto‑detects source language (or choose it manually)
-- Produces a ready‑to‑use SRT file for direct import in your editor/player
-
-## How to use
-
-1) Upload your .srt file
-2) Choose a target language (e.g., fr, en, es, de)
-3) Optional: set source to auto (default)
-4) Optional: enable grouped translation for extra context on longer scenes
-5) Click Translate and download the resulting <filename>_<target>.srt
-
-That’s it — no extra cleanup steps needed.
-
-## Run locally
-
-### 1) Full app (UI + backend)
-
-```zsh
-npm install
-pip3 install -r translate/requirements.txt
-npm run dev:all                                # starts backend + UI
-# open http://localhost:3000
-
-# Stop backend later
-npm run dev:stop
+```bash
+git clone git@github.com:yobns/SRTranslate.git
+cd translate
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### 2) Backend only (with a file at repo root)
+If you already have the project open with a prepared virtual environment, you can reuse it directly.
 
-Place your SRT at the project root (e.g., ./movie.srt), then run:
+## Usage
 
-```zsh
-# start the backend API
-python3 -m venv translate/.venv
-source translate/.venv/bin/activate
-pip install -r translate/requirements.txt
-uvicorn translate.src.server.api:app --host 127.0.0.1 --port 8000 --reload
+Translate a specific subtitle file:
+
+```bash
+python run_deep.py path/to/file.srt
 ```
 
-## FAQ
+If you do not pass a file, the script looks for the first `.srt` file in the current folder.
 
-- Does it change timestamps?
-  - No. Timecodes are preserved as in your original file.
-- Will my formatting be kept?
-  - Yes. Common inline tags like <i> and <b> are preserved.
-- Can it handle RTL scripts (Arabic, Hebrew)?
-  - Yes, right‑to‑left languages are supported.
-- What’s the output encoding?
-  - UTF‑8.
-- I get “Invalid SRT”. What should I check?
-  - Ensure each cue has a timecode line like `00:00:00,000 --> 00:00:01,234` followed by one or more text lines; remove stray blank lines within cues.
+The program will ask for the target language when running in an interactive terminal. If no answer is provided, it defaults to French (`fr`).
 
----
+The translated file is saved as:
 
-If this project helps you, a ⭐️ is appreciated. Feedback and contributions are welcome.
+```text
+original_name_<target_lang>.srt
+```
+
+For example, `movie.srt` translated to French becomes `movie_fr.srt`.
+
+## Helpful Scripts
+
+Validate an SRT file:
+
+```bash
+python scripts/validate_srt.py path/to/file.srt
+```
+
+Format an SRT file in place:
+
+```bash
+python scripts/format_srt.py path/to/file.srt
+```
+
+## Environment Variables
+
+These variables let you tune the translator without changing code:
+
+- `INPUT_SRT`: explicit input file path.
+- `TARGET_LANG`: target language code, for example `fr`, `en`, `es`, `ar`, `he`, or `zh-TW`.
+- `SOURCE_LANG`: source language code, default `auto`.
+- `GROUP_DEEP`: set to `0` to translate cue by cue instead of grouped translation.
+- `FAST_MODE`: set to `1` to use larger groups and moderate concurrency.
+- `TRANSLATE_CONCURRENCY`: number of concurrent translation requests.
+- `GROUP_MAX_CHARS`: max characters per group.
+- `GROUP_MAX_BLOCKS`: max subtitle cues per group.
+- `GROUP_MAX_GAP_MS`: max gap in milliseconds between grouped cues.
+- `TRANSLATE_CACHE`: set to `0` to disable the SQLite cache.
+- `TRANSLATE_CACHE_PATH`: path to the SQLite cache file, default `.translate_cache.sqlite`.
+- `OFFER_DOWNLOAD`: set to `0` to skip the local download prompt.
+- `AUTO_DOWNLOAD`: set to `1` to open the download link automatically.
+
+Example:
+
+```bash
+TARGET_LANG=fr SOURCE_LANG=auto FAST_MODE=1 python run_deep.py movie.srt
+```
+
+## How It Works
+
+1. The script loads the SRT file with `pysrt`.
+2. It detects the dominant language when needed.
+3. It groups cues according to timing and length heuristics.
+4. It translates the text through `GoogleTranslator`.
+5. It restores protected tags, normalizes the text, and saves the translated SRT.
+
+## Output And Cache
+
+- Translations are written next to the source file by default.
+- When download mode is accepted, the translated file is archived into an `archive/` folder beside the source file and the original input file is removed.
+- Repeated translations are accelerated by a memory cache and an optional SQLite cache.
+
+## Notes
+
+- The old HTTP API is no longer part of the main workflow.
+- If a command fails because a dependency is missing, make sure you are running inside `.venv`.
